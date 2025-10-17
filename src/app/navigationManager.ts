@@ -4,6 +4,7 @@
 import type {IpcMainEvent, IpcMainInvokeEvent} from 'electron';
 import {dialog, ipcMain} from 'electron';
 
+import MainWindow from 'app/mainWindow/mainWindow';
 import ModalManager from 'app/mainWindow/modals/modalManager';
 import ServerHub from 'app/serverHub';
 import TabManager from 'app/tabs/tabManager';
@@ -131,7 +132,7 @@ export class NavigationManager {
     private handleBrowserHistoryPush = (e: IpcMainEvent, pathName: string) => {
         log.debug('handleBrowserHistoryPush', {webContentsId: e.sender.id});
 
-        const currentView = WebContentsManager.getViewByWebContentsId(e.sender.id);
+        let currentView = WebContentsManager.getViewByWebContentsId(e.sender.id);
         if (!currentView) {
             return;
         }
@@ -151,8 +152,16 @@ export class NavigationManager {
             cleanedPathName = pathName.replace(server.url.pathname, '');
         }
 
-        currentView.sendToRenderer(BROWSER_HISTORY_PUSH, cleanedPathName);
-        currentView.updateHistoryButton();
+        if (currentView.parentViewId) {
+            if (!MainWindow.get()?.isFocused()) {
+                MainWindow.get()?.focus();
+            }
+            TabManager.switchToTab(currentView.parentViewId);
+            currentView = WebContentsManager.getView(currentView.parentViewId);
+        }
+
+        currentView?.sendToRenderer(BROWSER_HISTORY_PUSH, cleanedPathName);
+        currentView?.updateHistoryButton();
     };
 
     private handleRequestBrowserHistoryStatus = (e: IpcMainInvokeEvent) => {
